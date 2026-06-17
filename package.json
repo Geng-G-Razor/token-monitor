@@ -1,0 +1,22 @@
+{
+  "name": "fufei-monitor",
+  "version": "0.1.0",
+  "description": "macOS menu bar app for monitoring fufei.mossx.ai consumption",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.4.0",
+    "@tauri-apps/plugin-shell": "^2.2.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.4.0",
+    "typescript": "^5.7.3",
+    "vite": "^6.2.0"
+  }
+}

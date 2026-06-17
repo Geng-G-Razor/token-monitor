@@ -1,0 +1,27 @@
+[package]
+name = "fufei-monitor"
+version = "0.1.0"
+description = "macOS menu bar app for monitoring fufei.mossx.ai consumption"
+authors = ["you"]
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "fufei_monitor_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
+tauri-plugin-shell = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+keyring = { version = "3", features = ["apple-native"] }
+thiserror = "2"
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]

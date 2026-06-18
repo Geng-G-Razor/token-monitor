@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>Token Monitor macOS App Icon</title>
+  <desc>Token Monitor app icon with macOS padding.</desc>
+
+  <defs>
+    <clipPath id="iconShape">
+      <rect x="0" y="0" width="512" height="512" rx="72" ry="72"/>
+    </clipPath>
+  </defs>
+
+  <g transform="translate(51.2 51.2) scale(0.8)">
+    <rect x="0" y="0" width="512" height="512" rx="72" ry="72" fill="#3C3489"/>
+
+    <circle cx="256" cy="256" r="154" fill="#534AB7" clip-path="url(#iconShape)"/>
+    <circle cx="256" cy="256" r="102" fill="#3C3489" clip-path="url(#iconShape)"/>
+
+    <rect x="240" y="86" width="14" height="56" rx="7" fill="#AFA9EC"/>
+    <rect x="240" y="362" width="14" height="56" rx="7" fill="#AFA9EC"/>
+    <rect x="258" y="86" width="14" height="56" rx="7" fill="#AFA9EC"/>
+    <rect x="258" y="362" width="14" height="56" rx="7" fill="#AFA9EC"/>
+
+    <rect x="86" y="242" width="56" height="14" rx="7" fill="#AFA9EC"/>
+    <rect x="362" y="242" width="56" height="14" rx="7" fill="#AFA9EC"/>
+
+    <rect x="108" y="108" width="56" height="14" rx="7" fill="#AFA9EC" transform="rotate(45 136 115)"/>
+    <rect x="340" y="108" width="56" height="14" rx="7" fill="#AFA9EC" transform="rotate(-45 368 115)"/>
+    <rect x="108" y="382" width="56" height="14" rx="7" fill="#AFA9EC" transform="rotate(-45 136 389)"/>
+    <rect x="340" y="382" width="56" height="14" rx="7" fill="#AFA9EC" transform="rotate(45 368 389)"/>
+
+    <polygon points="272,170 218,292 260,292 240,400 310,240 264,240 290,170" fill="#EEEDFE"/>
+  </g>
+</svg>

@@ -3,6 +3,8 @@ use keyring::Entry;
 const SERVICE: &str = "ai.mossx.fufei-monitor";
 const ACCESS_USER: &str = "fufei-account";
 const REFRESH_USER: &str = "fufei-refresh";
+const BASEURL_USER: &str = "fufei-baseurl";
+const DEFAULT_BASE_URL: &str = "https://fufei.mossx.ai";
 
 #[derive(Debug, thiserror::Error)]
 pub enum AuthError {
@@ -38,8 +40,21 @@ pub fn get_refresh_token() -> Option<String> {
         .ok()
 }
 
+pub fn store_base_url(url: &str) -> Result<(), AuthError> {
+    Entry::new(SERVICE, BASEURL_USER)?.set_password(url)?;
+    Ok(())
+}
+
+pub fn get_base_url() -> String {
+    Entry::new(SERVICE, BASEURL_USER)
+        .ok()
+        .and_then(|e| e.get_password().ok())
+        .unwrap_or_else(|| DEFAULT_BASE_URL.to_string())
+}
+
 pub fn clear_tokens() -> Result<(), AuthError> {
     let _ = Entry::new(SERVICE, ACCESS_USER)?.delete_credential();
     let _ = Entry::new(SERVICE, REFRESH_USER)?.delete_credential();
+    let _ = Entry::new(SERVICE, BASEURL_USER)?.delete_credential();
     Ok(())
 }

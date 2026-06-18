@@ -71,6 +71,10 @@ body {
   font-size: 11px;
   margin: 0;
 }
+.inline-muted {
+  color: var(--muted);
+  font-size: 11px;
+}
 .label {
   color: var(--muted);
   font-size: 10px;
@@ -197,6 +201,29 @@ select:focus {
   color: var(--danger);
   font-size: 11px;
   margin: 0 0 8px;
+}
+#balance-block {
+  text-align: right;
+}
+/*#balance-block .big-amt {*/
+/*  font-size: 16px;*/
+/*  color: var(--text-dim);*/
+/*  text-shadow: none;*/
+/*}*/
+.field-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+.field-divider::before,
+.field-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-strong);
 }
 
 /* ---------- dashboard stats ---------- */

@@ -16,3 +16,6 @@ src-tauri/gen/
 # Env / secrets
 .env
 .env.*
+
+# Icon design backups
+src-tauri/icons/backup_orig/

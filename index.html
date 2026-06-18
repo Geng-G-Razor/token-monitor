@@ -23,18 +23,30 @@
       <!-- Login view -->
       <section id="view-login" class="view hidden">
         <header class="login-head">
-          <div class="logo">¥</div>
+          <div class="logo hidden">¥</div>
           <h1>Fufei Monitor</h1>
           <p class="muted">登录查看消费与订阅</p>
         </header>
         <form id="login-form" autocomplete="on">
           <label class="field">
+            <span>服务地址</span>
+            <input id="base-url" type="url" autocomplete="off" placeholder="https://fufei.mossx.ai" />
+          </label>
+
+          <div class="field-divider"><span>登录方式</span></div>
+
+          <label class="field">
             <span>邮箱</span>
-            <input id="email" type="email" autocomplete="username" required placeholder="you@example.com" />
+            <input id="email" type="email" autocomplete="username" placeholder="you@example.com" />
           </label>
           <label class="field">
             <span>密码</span>
-            <input id="password" type="password" autocomplete="current-password" required placeholder="••••••••" />
+            <input id="password" type="password" autocomplete="current-password" placeholder="••••••••" />
+          </label>
+          <div class="field-divider"><span>或</span></div>
+          <label class="field">
+            <span>Authorization Token</span>
+            <input id="token" type="text" autocomplete="off" placeholder="Bearer eyJhbGciOiJSUzI1NiI…" />
           </label>
           <p id="login-error" class="error hidden"></p>
           <button id="login-btn" type="submit" class="primary">登录</button>
@@ -48,6 +60,10 @@
           <div>
             <div class="big-amt" id="today-cost">$0.00</div>
             <div class="label">今日消费</div>
+          </div>
+          <div id="balance-block" class="hidden">
+            <div class="big-amt" id="today-balance">$0.00</div>
+            <div class="label">余额</div>
           </div>
           <button id="refresh-btn" class="icon-btn" title="刷新" aria-label="刷新">
             <svg class="ico" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">

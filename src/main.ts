@@ -61,6 +61,10 @@ interface Subscription {
   group?: GroupInfo;
 }
 
+interface UserInfo {
+  balance: number;
+}
+
 // ---- Formatters -----------------------------------------------------------
 const money = (n: number) =>
   "$" +
@@ -309,11 +313,21 @@ function renderSubs(subs: Subscription[]) {
 }
 
 // ---- Combined render ------------------------------------------------------
-type DashboardData = { stats: Stats; subs: Subscription[] };
+type DashboardData = { stats: Stats; subs: Subscription[]; balance?: number };
 
 function renderAll(data: DashboardData) {
   renderStats(data.stats);
   renderSubs(data.subs);
+
+  // Balance
+  const balBlock = $("balance-block");
+  const balEl = $("today-balance");
+  if (data.balance != null) {
+    balEl.textContent = money(data.balance);
+    balBlock.classList.remove("hidden");
+  } else {
+    balBlock.classList.add("hidden");
+  }
 
   // Update tray title with today's cost from stats
   updateTrayTitle(data.stats.today_actual_cost);
@@ -338,11 +352,12 @@ async function refresh() {
   refreshing = true;
   $("refresh-btn")?.classList.add("spinning");
   try {
-    const [stats, subs] = await Promise.all([
+    const [stats, subs, userInfo] = await Promise.all([
       invoke<Stats>("fetch_stats"),
       invoke<Subscription[]>("fetch_subscriptions"),
+      invoke<UserInfo>("fetch_user_info").catch(() => undefined),
     ]);
-    renderAll({ stats, subs });
+    renderAll({ stats, subs, balance: userInfo?.balance });
   } catch (e) {
     const msg = String(e);
     if (msg.includes("not logged in") || msg.includes("401")) {
@@ -359,15 +374,29 @@ async function refresh() {
 // ---- Login ----------------------------------------------------------------
 async function handleLogin(ev: SubmitEvent) {
   ev.preventDefault();
-  const email = ($("email") as HTMLInputElement).value.trim();
-  const password = ($("password") as HTMLInputElement).value;
   const errEl = $("login-error");
   const btn = $("login-btn") as HTMLButtonElement;
   errEl.classList.add("hidden");
+
+  const baseUrl = ($("base-url") as HTMLInputElement).value.trim();
+  const email = ($("email") as HTMLInputElement).value.trim();
+  const password = ($("password") as HTMLInputElement).value;
+  const token = ($("token") as HTMLInputElement).value.trim();
+
+  if (!email && !password && !token) {
+    errEl.textContent = "请填写邮箱密码或 Authorization Token";
+    errEl.classList.remove("hidden");
+    return;
+  }
+
   btn.disabled = true;
   btn.textContent = "登录中…";
   try {
-    await invoke("login", { email, password });
+    if (token) {
+      await invoke("login_with_token", { token, baseUrl });
+    } else {
+      await invoke("login", { email, password, baseUrl });
+    }
     show("dash");
     await refresh();
     startTimer();

@@ -114,10 +114,12 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
             commands::login,
+            commands::login_with_token,
             commands::logout,
             commands::is_logged_in,
             commands::fetch_stats,
             commands::fetch_subscriptions,
+            commands::fetch_user_info,
             set_auto_hide,
             quit_app,
             set_tray_title,

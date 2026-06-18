@@ -2,7 +2,7 @@
 name = "fufei-monitor"
 version = "0.1.0"
 description = "macOS menu bar app for monitoring fufei.mossx.ai consumption"
-authors = ["you"]
+authors = ["ggf"]
 edition = "2021"
 rust-version = "1.77"
 

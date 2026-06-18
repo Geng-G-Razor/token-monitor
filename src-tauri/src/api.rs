@@ -2,8 +2,6 @@ use std::sync::OnceLock;
 
 use serde::{Deserialize, Serialize};
 
-pub const BASE_URL: &str = "https://fufei.mossx.ai";
-
 /// Shared HTTP client. Built once and reused so connections are pooled and
 /// keep-alive'd across the periodic polling, instead of being
 /// torn down and rebuilt on every request.
@@ -133,9 +131,9 @@ struct SubscriptionsEnvelope {
 // ---- Auth endpoints -------------------------------------------------------
 
 /// Login with email/password. Returns tokens on success.
-pub async fn login(email: &str, password: &str) -> Result<LoginResponse, ApiError> {
+pub async fn login(base_url: &str, email: &str, password: &str) -> Result<LoginResponse, ApiError> {
     let resp = client()
-        .post(format!("{}/api/v1/auth/login", BASE_URL))
+        .post(format!("{}/api/v1/auth/login", base_url))
         .json(&serde_json::json!({ "email": email, "password": password }))
         .send()
         .await?;
@@ -161,9 +159,9 @@ pub async fn login(email: &str, password: &str) -> Result<LoginResponse, ApiErro
 }
 
 /// Refresh access token using the refresh token.
-pub async fn refresh(refresh_token: &str) -> Result<LoginResponse, ApiError> {
+pub async fn refresh(base_url: &str, refresh_token: &str) -> Result<LoginResponse, ApiError> {
     let resp = client()
-        .post(format!("{}/api/v1/auth/refresh", BASE_URL))
+        .post(format!("{}/api/v1/auth/refresh", base_url))
         .json(&serde_json::json!({ "refresh_token": refresh_token }))
         .send()
         .await?;
@@ -183,12 +181,22 @@ pub async fn refresh(refresh_token: &str) -> Result<LoginResponse, ApiError> {
 
 // ---- Dashboard stats endpoint ---------------------------------------------
 
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
+pub struct UserInfo {
+    pub balance: f64,
+}
+
+#[derive(Debug, Deserialize)]
+struct UserInfoEnvelope {
+    data: UserInfo,
+}
+
 /// Fetch dashboard stats with a given bearer token.
-pub async fn fetch_stats(access_token: &str) -> Result<StatsData, ApiError> {
+pub async fn fetch_stats(base_url: &str, access_token: &str) -> Result<StatsData, ApiError> {
     let resp = client()
         .get(format!(
             "{}/api/v1/usage/dashboard/stats?timezone=Asia/Shanghai",
-            BASE_URL
+            base_url
         ))
         .bearer_auth(access_token)
         .send()
@@ -207,14 +215,38 @@ pub async fn fetch_stats(access_token: &str) -> Result<StatsData, ApiError> {
     }
 }
 
+/// Fetch user info (balance, etc.) with a given bearer token.
+pub async fn fetch_user_info(base_url: &str, access_token: &str) -> Result<UserInfo, ApiError> {
+    let resp = client()
+        .get(format!(
+            "{}/api/v1/auth/me?timezone=Asia/Shanghai",
+            base_url
+        ))
+        .bearer_auth(access_token)
+        .send()
+        .await?;
+
+    let status = resp.status();
+    let text = resp.text().await.unwrap_or_default();
+    if status == reqwest::StatusCode::OK {
+        serde_json::from_str::<UserInfoEnvelope>(&text)
+            .map(|v| v.data)
+            .map_err(|e| ApiError::Status(200, format!("bad json: {e}")))
+    } else if status.as_u16() == 401 {
+        Err(ApiError::Unauthorized)
+    } else {
+        Err(ApiError::Status(status.as_u16(), text))
+    }
+}
+
 // ---- Subscriptions endpoint ------------------------------------------------
 
 /// Fetch active subscriptions with a given bearer token.
-pub async fn fetch_subscriptions(access_token: &str) -> Result<Vec<Subscription>, ApiError> {
+pub async fn fetch_subscriptions(base_url: &str, access_token: &str) -> Result<Vec<Subscription>, ApiError> {
     let resp = client()
         .get(format!(
             "{}/api/v1/subscriptions/active?timezone=Asia/Shanghai",
-            BASE_URL
+            base_url
         ))
         .bearer_auth(access_token)
         .send()

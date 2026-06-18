@@ -2,6 +2,8 @@
 
 macOS 菜单栏应用，监控 LLM API 的 Token 消费情况。支持配置任意兼容 API 的服务地址，登录后即可查看今日消费、请求数、RPM/TPM、各平台分布及余额。
 
+![Token Monitor 菜单栏面板截图](images/menu-bar-panel.png)
+
 ## 功能
 
 - **菜单栏常驻**：托盘图标旁显示今日消费金额（如 `$1.23`），左键点击弹出面板

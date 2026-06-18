@@ -1,6 +1,6 @@
 [package]
 name = "token-monitor"
-version = "0.2.0"
+version = "0.2.1"
 description = "Menu bar app for monitoring LLM API token consumption (macOS & Windows)"
 authors = ["ggf"]
 edition = "2021"

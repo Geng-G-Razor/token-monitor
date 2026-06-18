@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager, WebviewWindow,
+    ActivationPolicy, Manager, WebviewWindow,
 };
 
 const TRAY_ID: &str = "main-tray";
@@ -126,6 +126,10 @@ pub fn run() {
             fit_height,
         ])
         .setup(|app| {
+            // Hide Dock icon (accessory = menu-bar only, no Dock/App Switcher).
+            // LSUIElement=true in Info.plist only affects the bundled build; this
+            // ensures dev mode behaves the same.
+            app.set_activation_policy(ActivationPolicy::Accessory);
             // Dock icon is hidden via LSUIElement=true in the bundle's Info.plist
             // (configured through the bundle config / build hooks), so a pure
             // menu-bar accessory is achieved without extra runtime crates.

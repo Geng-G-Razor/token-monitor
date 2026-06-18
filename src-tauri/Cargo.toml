@@ -1,7 +1,7 @@
 [package]
 name = "token-monitor"
 version = "0.2.0"
-description = "macOS menu bar app for monitoring LLM API token consumption"
+description = "Menu bar app for monitoring LLM API token consumption (macOS & Windows)"
 authors = ["ggf"]
 edition = "2021"
 rust-version = "1.77"
@@ -14,14 +14,23 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
-tauri-plugin-shell = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
-keyring = { version = "3", features = ["apple-native"] }
 thiserror = "2"
+
+# macOS: private API for menu-bar-only mode, Apple Keychain
+[target.'cfg(target_os = "macos")'.dependencies]
+tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
+keyring = { version = "3", features = ["apple-native"] }
+tauri-plugin-shell = "2"
+
+# Windows: standard tray, Windows Credential Manager
+[target.'cfg(target_os = "windows")'.dependencies]
+tauri = { version = "2", features = ["macos-private-api", "tray-icon"] }
+keyring = { version = "3", features = ["windows-native"] }
+tauri-plugin-shell = "2"
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]

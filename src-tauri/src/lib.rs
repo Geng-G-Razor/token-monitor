@@ -7,8 +7,11 @@ use std::time::Duration;
 
 use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    ActivationPolicy, Manager, WebviewWindow,
+    Manager, WebviewWindow,
 };
+
+#[cfg(target_os = "macos")]
+use tauri::ActivationPolicy;
 
 const TRAY_ID: &str = "main-tray";
 const HIDE_DELAY: Duration = Duration::from_secs(3);
@@ -24,8 +27,10 @@ static ALLOW_AUTO_HIDE: AtomicBool = AtomicBool::new(true);
 /// window regains focus before the 3 s timer fires.
 static PENDING_HIDE: AtomicBool = AtomicBool::new(false);
 
-/// Show the popup window anchored just below the tray icon on macOS.
-/// The webview is 340 wide; center it under the click x.
+/// Show the popup window anchored just below the tray icon.
+/// On macOS the tray is in the menu bar (top of screen) — the popup appears below
+/// the click. On Windows the tray is in the taskbar (usually bottom of screen) —
+/// the popup will appear above or near the click automatically.
 fn show_popup_at(window: &WebviewWindow, x: f64, y: f64) {
     let w = POPUP_WIDTH;
     // Reuse the current height if the frontend has already fitted it to the
@@ -44,9 +49,10 @@ fn show_popup_at(window: &WebviewWindow, x: f64, y: f64) {
 }
 
 fn build_tray(app: &tauri::App) -> tauri::Result<()> {
-    // Do NOT attach a menu to the tray icon — on macOS a menu intercepts
-    // left-click and prevents on_tray_icon_event from firing, which means
-    // the popup window can never appear.  Quit is handled via the UI instead.
+    // On macOS: do NOT attach a menu to the tray icon, otherwise a menu
+    // intercepts left-click and prevents on_tray_icon_event from firing.
+    // On Windows: menus work fine, but we handle quit from the UI, so the
+    // tray-icon-left-click → popup-toggling pattern is consistent across both.
     let mut builder = TrayIconBuilder::with_id(TRAY_ID)
         .icon(app.default_window_icon().cloned().expect("missing icon"))
         .tooltip("Token Monitor")
@@ -73,10 +79,29 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
         });
 
     // Start with a placeholder title; the frontend updates it with today's cost.
+    // On macOS this shows text next to the tray icon in the menu bar.
+    // On Windows the tray icon cannot display text, so the cost goes to the tooltip.
     builder = builder.title("");
     let _tray = builder.build(app)?;
     Ok(())
 }
+
+// ── Tray title helpers ──────────────────────────────────────────────────────
+// macOS: tray icons can display adjacent text (set_title).
+// Windows: no text on tray icons — we repurpose the tooltip to show the cost.
+
+#[cfg(target_os = "macos")]
+fn set_tray_title_impl(tray: &tauri::tray::TrayIcon, title: &str) {
+    let _ = tray.set_title(Some(title));
+}
+
+#[cfg(not(target_os = "macos"))]
+fn set_tray_title_impl(tray: &tauri::tray::TrayIcon, title: &str) {
+    let tooltip = format!("Token Monitor | {}", title);
+    let _ = tray.set_tooltip(Some(&tooltip));
+}
+
+// ── Tauri commands ──────────────────────────────────────────────────────────
 
 /// Allow the frontend to control whether the window auto-hides on focus loss.
 /// The login form needs the window to stay open even when focus briefly leaves.
@@ -91,11 +116,11 @@ fn quit_app(app: tauri::AppHandle) {
     app.exit(0);
 }
 
-/// Update the tray title (shown next to the icon in the menu bar).
+/// Update the tray title (macOS: text next to icon; Windows: tooltip).
 #[tauri::command]
 fn set_tray_title(app: tauri::AppHandle, title: String) {
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
-        let _ = tray.set_title(Some(&title));
+        set_tray_title_impl(&tray, &title);
     }
 }
 
@@ -126,13 +151,13 @@ pub fn run() {
             fit_height,
         ])
         .setup(|app| {
-            // Hide Dock icon (accessory = menu-bar only, no Dock/App Switcher).
-            // LSUIElement=true in Info.plist only affects the bundled build; this
-            // ensures dev mode behaves the same.
+            // Hide Dock icon on macOS (accessory = menu-bar only, no Dock/App
+            // Switcher). LSUIElement=true in Info.plist handles the bundled
+            // build; this call ensures dev mode behaves the same. No-op on
+            // Windows where the concept doesn't exist.
+            #[cfg(target_os = "macos")]
             app.set_activation_policy(ActivationPolicy::Accessory);
-            // Dock icon is hidden via LSUIElement=true in the bundle's Info.plist
-            // (configured through the bundle config / build hooks), so a pure
-            // menu-bar accessory is achieved without extra runtime crates.
+
             build_tray(app)?;
             Ok(())
         })

@@ -2,19 +2,21 @@ mod api;
 mod auth;
 mod commands;
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Duration;
 
 use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager, WebviewWindow,
+    Manager, Rect, WebviewWindow,
 };
 
 #[cfg(target_os = "macos")]
 use tauri::ActivationPolicy;
 
 const TRAY_ID: &str = "main-tray";
-const HIDE_DELAY: Duration = Duration::from_secs(3);
+const HIDE_DELAY: Duration = Duration::from_millis(200);
+const OUTSIDE_HIDE_DELAY: Duration = Duration::from_millis(500);
+const OUTSIDE_POLL_INTERVAL: Duration = Duration::from_millis(100);
 /// Popup width in logical pixels. Must match the `width` in tauri.conf.json
 /// and the value used by `fit_height`, otherwise the window visibly resizes
 /// each time the tray is clicked.
@@ -23,15 +25,107 @@ const POPUP_WIDTH: f64 = 340.0;
 /// Flag to suppress auto-hide when the frontend intentionally keeps the window open
 /// (e.g. while the login form is active).
 static ALLOW_AUTO_HIDE: AtomicBool = AtomicBool::new(true);
-/// Set on focus-loss, cleared on focus-gain — prevents a delayed hide if the
-/// window regains focus before the 3 s timer fires.
+/// Set on focus-loss, cleared on focus-gain to prevent a delayed hide if the
+/// window regains focus before the short timer fires.
 static PENDING_HIDE: AtomicBool = AtomicBool::new(false);
+static POPUP_WATCH_ID: AtomicU64 = AtomicU64::new(0);
 
-/// Show the popup window anchored just below the tray icon.
-/// On macOS the tray is in the menu bar (top of screen) — the popup appears below
-/// the click. On Windows the tray is in the taskbar (usually bottom of screen) —
-/// the popup will appear above or near the click automatically.
-fn show_popup_at(window: &WebviewWindow, x: f64, y: f64) {
+#[derive(Clone, Copy)]
+struct PhysicalBounds {
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+}
+
+impl PhysicalBounds {
+    fn contains(&self, x: f64, y: f64) -> bool {
+        x >= self.x && x <= self.x + self.width && y >= self.y && y <= self.y + self.height
+    }
+
+    fn padded(self, padding: f64) -> Self {
+        Self {
+            x: self.x - padding,
+            y: self.y - padding,
+            width: self.width + padding * 2.0,
+            height: self.height + padding * 2.0,
+        }
+    }
+}
+
+fn rect_to_physical_bounds(rect: Rect, scale_factor: f64) -> PhysicalBounds {
+    let position = rect.position.to_physical::<f64>(scale_factor);
+    let size = rect.size.to_physical::<f64>(scale_factor);
+
+    PhysicalBounds {
+        x: position.x,
+        y: position.y,
+        width: size.width,
+        height: size.height,
+    }
+}
+
+fn popup_position(
+    window: &WebviewWindow,
+    x: f64,
+    y: f64,
+    w: f64,
+    h: f64,
+) -> tauri::PhysicalPosition<i32> {
+    let Some(monitor) = window
+        .available_monitors()
+        .ok()
+        .and_then(|monitors| {
+            monitors.into_iter().find(|monitor| {
+                let area = monitor.work_area();
+                x >= f64::from(area.position.x)
+                    && x <= f64::from(area.position.x) + f64::from(area.size.width)
+                    && y >= f64::from(area.position.y)
+                    && y <= f64::from(area.position.y) + f64::from(area.size.height)
+            })
+        })
+        .or_else(|| window.current_monitor().ok().flatten())
+        .or_else(|| window.primary_monitor().ok().flatten())
+    else {
+        let sf = window.scale_factor().unwrap_or(1.0);
+        return tauri::PhysicalPosition::new((x - w * sf / 2.0).round() as i32, y.round() as i32);
+    };
+
+    let work_area = monitor.work_area();
+    let sf = monitor.scale_factor();
+    let gap = 8.0 * sf;
+    let w = w * sf;
+    let h = h * sf;
+    let min_x = f64::from(work_area.position.x);
+    let min_y = f64::from(work_area.position.y);
+    let width = f64::from(work_area.size.width);
+    let height = f64::from(work_area.size.height);
+    let max_x = min_x + width;
+    let max_y = min_y + height;
+
+    let mut popup_x = x - w / 2.0;
+    popup_x = if width > w {
+        popup_x.clamp(min_x, max_x - w)
+    } else {
+        min_x
+    };
+
+    let mut popup_y = y + gap;
+    if popup_y + h > max_y {
+        popup_y = y - h - gap;
+    }
+    popup_y = if height > h {
+        popup_y.clamp(min_y, max_y - h)
+    } else {
+        min_y
+    };
+
+    tauri::PhysicalPosition::new(popup_x.round() as i32, popup_y.round() as i32)
+}
+
+/// Show the popup window anchored near the tray icon, keeping it inside the
+/// current monitor's work area.
+fn show_popup_at(window: &WebviewWindow, x: f64, y: f64, tray_rect: Rect) {
     let w = POPUP_WIDTH;
     // Reuse the current height if the frontend has already fitted it to the
     // content; otherwise fall back to the default. We avoid forcing 510 every
@@ -42,10 +136,65 @@ fn show_popup_at(window: &WebviewWindow, x: f64, y: f64) {
         .map(|s| s.to_logical(window.scale_factor().unwrap_or(1.0)).height)
         .filter(|h| *h > 1.0)
         .unwrap_or(510.0);
-    let _ = window.set_position(tauri::LogicalPosition::new(x - w / 2.0, y));
+    let _ = window.set_position(popup_position(window, x, y, w, h));
     let _ = window.set_size(tauri::LogicalSize::new(w, h));
     let _ = window.show();
     let _ = window.set_focus();
+    let tray_bounds = rect_to_physical_bounds(tray_rect, window.scale_factor().unwrap_or(1.0));
+    start_outside_hide_watch(window.clone(), tray_bounds);
+}
+
+fn start_outside_hide_watch(window: WebviewWindow, tray_bounds: PhysicalBounds) {
+    let watch_id = POPUP_WATCH_ID.fetch_add(1, Ordering::SeqCst) + 1;
+
+    std::thread::spawn(move || {
+        let mut outside_for = Duration::ZERO;
+        let tray_bounds = tray_bounds.padded(16.0);
+
+        loop {
+            std::thread::sleep(OUTSIDE_POLL_INTERVAL);
+
+            if POPUP_WATCH_ID.load(Ordering::SeqCst) != watch_id {
+                return;
+            }
+            if !window.is_visible().unwrap_or(false) {
+                return;
+            }
+            if !ALLOW_AUTO_HIDE.load(Ordering::SeqCst) {
+                outside_for = Duration::ZERO;
+                continue;
+            }
+            if window.is_focused().unwrap_or(false) {
+                outside_for = Duration::ZERO;
+                continue;
+            }
+
+            let Ok(cursor) = window.cursor_position() else {
+                continue;
+            };
+            let Ok(position) = window.outer_position() else {
+                continue;
+            };
+            let Ok(size) = window.outer_size() else {
+                continue;
+            };
+
+            let inside_window = cursor.x >= f64::from(position.x)
+                && cursor.x <= f64::from(position.x) + f64::from(size.width)
+                && cursor.y >= f64::from(position.y)
+                && cursor.y <= f64::from(position.y) + f64::from(size.height);
+
+            if inside_window || tray_bounds.contains(cursor.x, cursor.y) {
+                outside_for = Duration::ZERO;
+            } else {
+                outside_for += OUTSIDE_POLL_INTERVAL;
+                if outside_for >= OUTSIDE_HIDE_DELAY {
+                    let _ = window.hide();
+                    return;
+                }
+            }
+        }
+    });
 }
 
 fn build_tray(app: &tauri::App) -> tauri::Result<()> {
@@ -55,12 +204,13 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
     // tray-icon-left-click → popup-toggling pattern is consistent across both.
     let mut builder = TrayIconBuilder::with_id(TRAY_ID)
         .icon(app.default_window_icon().cloned().expect("missing icon"))
-        .tooltip("Token Monitor")
+        .tooltip("Token Monitor | 未登录")
         .on_tray_icon_event(|tray, event| {
             if let TrayIconEvent::Click {
                 button: MouseButton::Left,
                 button_state: MouseButtonState::Up,
                 position,
+                rect,
                 ..
             } = event
             {
@@ -69,10 +219,7 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
                     if win.is_visible().unwrap_or(false) {
                         let _ = win.hide();
                     } else {
-                        let sf = win.scale_factor().unwrap_or(1.0);
-                        let lx = position.x / sf;
-                        let ly = position.y / sf;
-                        show_popup_at(&win, lx, ly);
+                        show_popup_at(&win, position.x, position.y, rect);
                     }
                 }
             }
@@ -128,8 +275,28 @@ fn set_tray_title(app: tauri::AppHandle, title: String) {
 #[tauri::command]
 fn fit_height(app: tauri::AppHandle, height: f64) {
     if let Some(win) = app.get_webview_window("main") {
-        let sf = win.scale_factor().unwrap_or(1.0);
-        let _ = win.set_size(tauri::LogicalSize::new(POPUP_WIDTH, height / sf));
+        let _ = win.set_size(tauri::LogicalSize::new(POPUP_WIDTH, height));
+
+        if let (Ok(position), Ok(Some(monitor))) = (win.outer_position(), win.current_monitor()) {
+            let sf = monitor.scale_factor();
+            let work_area = monitor.work_area();
+            let h = height * sf;
+            let min_y = f64::from(work_area.position.y);
+            let max_y = min_y + f64::from(work_area.size.height);
+            let y = f64::from(position.y);
+
+            if y + h > max_y {
+                let adjusted_y = if f64::from(work_area.size.height) > h {
+                    max_y - h
+                } else {
+                    min_y
+                };
+                let _ = win.set_position(tauri::PhysicalPosition::new(
+                    position.x,
+                    adjusted_y.round() as i32,
+                ));
+            }
+        }
     }
 }
 
@@ -163,9 +330,8 @@ pub fn run() {
         })
         .on_window_event(|window, event| match event {
             tauri::WindowEvent::Focused(false) => {
-                // Delay hiding by 3 s so the user has time to interact with
-                // the login form.  If the window regains focus before the
-                // timer fires the pending hide is cancelled.
+                // Give focus a brief chance to settle. If the window regains
+                // focus before the timer fires the pending hide is cancelled.
                 PENDING_HIDE.store(true, Ordering::SeqCst);
                 let win = window.clone();
                 std::thread::spawn(move || {

@@ -130,7 +130,10 @@ function show(view: "loading" | "login" | "dash") {
   $("view-loading").classList.toggle("hidden", view !== "loading");
   $("view-login").classList.toggle("hidden", view !== "login");
   $("view-dash").classList.toggle("hidden", view !== "dash");
-  invoke("set_auto_hide", { enabled: view !== "login" });
+  invoke("set_auto_hide", { enabled: true });
+  if (view === "login") {
+    updateTrayStatus("未登录");
+  }
 }
 
 // ---- Render: stats dashboard ----------------------------------------------
@@ -338,6 +341,10 @@ function renderAll(data: DashboardData) {
 
 async function updateTrayTitle(cost: number) {
   const title = "\u2004$" + cost.toFixed(2);
+  await updateTrayStatus(title);
+}
+
+async function updateTrayStatus(title: string) {
   try {
     await invoke("set_tray_title", { title });
   } catch {
@@ -391,6 +398,7 @@ async function handleLogin(ev: SubmitEvent) {
 
   btn.disabled = true;
   btn.textContent = "登录中…";
+  await invoke("set_auto_hide", { enabled: false });
   try {
     if (token) {
       await invoke("login_with_token", { token, baseUrl });
@@ -404,6 +412,7 @@ async function handleLogin(ev: SubmitEvent) {
     errEl.textContent = "登录失败：" + String(e);
     errEl.classList.remove("hidden");
   } finally {
+    await invoke("set_auto_hide", { enabled: true });
     btn.disabled = false;
     btn.textContent = "登录";
   }

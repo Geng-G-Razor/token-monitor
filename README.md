@@ -137,6 +137,26 @@ pnpm tauri dev
 pnpm tauri build
 ```
 
+## 下载安装
+
+从 [Releases 页面](https://github.com/Geng-G-Razor/token-monitor/releases) 下载最新的 `.dmg` 文件，挂载后将 `Token Monitor.app` 拖入 `Applications` 文件夹即可。
+
+> ⚠️ **关于签名**：此应用未使用 Apple Developer ID 签名，首次打开时 Gatekeeper 会阻止运行。有两种方式解决：
+>
+> **方式一：右键打开（推荐）**
+>
+> 在 `访达` 中右键（或按住 `⌃` 单击）`Token Monitor.app` → 选择「打开」，在弹出的对话框中点击「打开」即可。之后双击即可正常打开。
+>
+> **方式二：自签名**
+>
+> 在终端中运行以下命令为应用签名：
+>
+> ```bash
+> codesign --force --deep --sign - /Applications/Token\ Monitor.app
+> ```
+>
+> 首次运行时仍可能需要右键「打开」一次。
+
 ## 前置要求
 
 - macOS 11.0+

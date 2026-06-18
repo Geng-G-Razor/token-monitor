@@ -49,7 +49,7 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
     // the popup window can never appear.  Quit is handled via the UI instead.
     let mut builder = TrayIconBuilder::with_id(TRAY_ID)
         .icon(app.default_window_icon().cloned().expect("missing icon"))
-        .tooltip("Fufei Monitor")
+        .tooltip("Token Monitor")
         .on_tray_icon_event(|tray, event| {
             if let TrayIconEvent::Click {
                 button: MouseButton::Left,

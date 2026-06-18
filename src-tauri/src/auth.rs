@@ -1,6 +1,6 @@
 use keyring::Entry;
 
-const SERVICE: &str = "ai.mossx.fufei-monitor";
+const SERVICE: &str = "com.token-monitor.app";
 const ACCESS_USER: &str = "fufei-account";
 const REFRESH_USER: &str = "fufei-refresh";
 const BASEURL_USER: &str = "fufei-baseurl";

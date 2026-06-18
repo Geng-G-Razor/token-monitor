@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Fufei Monitor",
+  "productName": "Token Monitor",
   "version": "0.1.0",
-  "identifier": "ai.mossx.fufei-monitor",
+  "identifier": "com.token-monitor.app",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Fufei Monitor",
+        "title": "Token Monitor",
         "width": 340,
         "height": 510,
         "resizable": true,

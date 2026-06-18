@@ -1,7 +1,7 @@
 {
-  "name": "fufei-monitor",
+  "name": "token-monitor",
   "version": "0.1.0",
-  "description": "macOS menu bar app for monitoring fufei.mossx.ai consumption",
+  "description": "macOS menu bar app for monitoring LLM API token consumption",
   "private": true,
   "type": "module",
   "scripts": {

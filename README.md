@@ -1,14 +1,17 @@
-# Fufei Monitor
+# Token Monitor
 
-macOS 菜单栏应用，监控 [fufei.mossx.ai](https://fufei.mossx.ai) 的 API 消费情况。点击状态栏图标即可查看今日消费、请求数、RPM/TPM、各平台分布等数据。
+macOS 菜单栏应用，监控 LLM API 的 Token 消费情况。支持配置任意兼容 API 的服务地址，登录后即可查看今日消费、请求数、RPM/TPM、各平台分布及余额。
 
 ## 功能
 
 - **菜单栏常驻**：托盘图标旁显示今日消费金额（如 `$1.23`），左键点击弹出面板
-- **登录 / 登出**：邮箱 + 密码登录，Token 存储在 macOS Keychain
+- **多种登录方式**：支持邮箱 + 密码登录，或直接粘贴 Authorization Token
+- **可配置服务地址**：登录页可自定义 API 服务地址（默认 `https://fufei.mossx.ai`）
 - **实时数据**：今日消费、请求数、RPM、TPM、平均耗时
 - **累计统计**：总消费、总 Token、总请求数
 - **按平台分布**：各平台消费占比及进度条
+- **订阅展示**：显示订阅套餐及用量进度
+- **余额展示**：显示账户余额
 - **定时刷新**：支持 1 / 5 / 10 / 30 分钟间隔，窗口获焦时自动刷新
 - **Token 自动刷新**：Access Token 过期后自动使用 Refresh Token 续期
 - **智能隐藏**：登录时窗口不自动隐藏；Dashboard 状态下失焦 3 秒后自动隐藏，重新获焦可取消
@@ -25,7 +28,7 @@ macOS 菜单栏应用，监控 [fufei.mossx.ai](https://fufei.mossx.ai) 的 API 
 ## 项目结构
 
 ```
-fufei-api-app/
+token-monitor/
 ├── package.json              # 前端依赖及脚本
 ├── vite.config.ts            # Vite 构建配置
 ├── tsconfig.json
@@ -41,9 +44,9 @@ fufei-api-app/
     └── src/
         ├── main.rs           # 入口，调用 lib::run()
         ├── lib.rs            # Tauri Builder + Tray 注册 + 窗口失焦延迟隐藏
-        ├── commands.rs       # Tauri commands: login / logout / is_logged_in / fetch_stats
-        ├── api.rs            # reqwest 封装: login / refresh / fetch_stats（Envelope 解析）
-        └── auth.rs           # macOS Keychain 存取 token
+        ├── commands.rs       # Tauri commands: login / login_with_token / logout / is_logged_in / fetch_stats / fetch_subscriptions / fetch_user_info
+        ├── api.rs            # reqwest 封装: login / refresh / fetch_stats / fetch_user_info（Envelope 解析）
+        └── auth.rs           # macOS Keychain 存取 token 和 base_url
 ```
 
 ## 核心模块说明
@@ -86,15 +89,18 @@ fufei-api-app/
 
 | 命令 | 签名 | 说明 |
 |------|------|------|
-| `login` | `(email, password) → bool` | 登录并将 token 存入 Keychain |
-| `logout` | `() → bool` | 清除 Keychain 中的 token |
-| `is_logged_in` | `() → bool` | 检查是否有存储的 access token |
-| `fetch_stats` | `() → StatsData` | 拉取仪表盘数据，401 时自动 refresh 一次 |
+| `login` | `(email, password, base_url) → bool` | 邮箱密码登录并存入 Keychain |
+| `login_with_token` | `(token, base_url) → bool` | Bearer Token 直接登录 |
+| `logout` | `() → bool` | 清除 Keychain |
+| `is_logged_in` | `() → bool` | 检查是否已登录 |
+| `fetch_stats` | `() → StatsData` | 拉取仪表盘数据，401 自动 refresh |
+| `fetch_subscriptions` | `() → Vec<Subscription>` | 拉取订阅列表 |
+| `fetch_user_info` | `() → UserInfo` | 拉取用户信息（余额等） |
 
 #### `api.rs` — HTTP 客户端
 
-- 基础地址：`https://fufei.mossx.ai`
-- 三个接口：`/api/v1/auth/login`、`/api/v1/auth/refresh`、`/api/v1/usage/dashboard/stats`
+- 基础地址由用户登录时填写，默认 `https://fufei.mossx.ai`
+- 四个接口：`/api/v1/auth/login`、`/api/v1/auth/refresh`、`/api/v1/usage/dashboard/stats`、`/api/v1/auth/me`
 - API 响应统一使用 Envelope 模式解析：`{ "code": 0, "data": { ... } }`
   - `LoginEnvelope` 解析 login/refresh 响应
   - `StatsEnvelope` 解析 stats 响应
@@ -103,9 +109,8 @@ fufei-api-app/
 
 #### `auth.rs` — Keychain 操作
 
-- Service: `ai.mossx.fufei-monitor`
-- 存取 access token（用户 `fufei-account`）和 refresh token（用户 `fufei-refresh`）
-- `clear_tokens` 清除两者
+- Service: `com.token-monitor.app`
+- 存取 access token（用户 `fufei-account`）、refresh token（用户 `fufei-refresh`）和 base_url（用户 `fufei-baseurl`）
 
 ### 窗口与 UI 配置 (`tauri.conf.json`)
 

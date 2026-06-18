@@ -1,13 +1,13 @@
 [package]
-name = "fufei-monitor"
+name = "token-monitor"
 version = "0.1.0"
-description = "macOS menu bar app for monitoring fufei.mossx.ai consumption"
+description = "macOS menu bar app for monitoring LLM API token consumption"
 authors = ["ggf"]
 edition = "2021"
 rust-version = "1.77"
 
 [lib]
-name = "fufei_monitor_lib"
+name = "token_monitor_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

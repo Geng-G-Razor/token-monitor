@@ -51,7 +51,7 @@ body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  box-shadow: var(--shadow);
+  /* box-shadow: var(--shadow); */
   height: 100%;
 }
 

@@ -4,7 +4,7 @@
 
 ![Token Monitor 菜单栏面板截图](images/menu-bar-panel.png)
 ![Token Monitor 登录页与 Dashboard 预览](images/login-and-dashboard.png)
-
+![Token Monitor 菜单栏面板截图](images/menu-bar-panel-windows.png)
 ## 功能
 
 - **桌面托盘常驻**：
